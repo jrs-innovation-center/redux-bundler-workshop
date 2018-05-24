@@ -140,3 +140,199 @@ const Layout = ({ route }) => {
 
 export default connect('selectRoute', Layout)
 ```
+
+> Internal Nav Helper
+
+This handy little helper lets you just write anchor links like normal and it will figure our if it is internal or external and do the right thing...
+
+> You will also notice we bring in doUpdateUrl, this is an action creator for routes.
+
+```js
+import React from 'react'
+import navHelper from 'internal-nav-helper'
+
+import { connect } from 'redux-bundler-react'
+
+const Layout = ({ route }) => {
+  const Page = route
+  return (
+    <main onClick={navHelper(doUpdateUrl)}>
+      <Page />
+    </main>
+  )
+}
+
+export default connect('selectRoute', 'doUpdateUrl', Layout)
+```
+
+---
+
+Extras
+
+Redux Bundler has a feature where you can add extras to the action creator argument list:
+
+bundles/extra.js
+
+```js
+/* global fetch */
+const NEWSURL = 'https://newsapi.org/v2'
+const APIKEY = process.env.REACT_APP_NEWS_APIKEY
+
+export default {
+  name: 'extras',
+  getExtraArgs: store => {
+    return {
+      apiFetch(path) {
+        return fetch(`${NEWSURL}/${path}`, {
+          headers: {
+            authorization: `Bearer ${APIKEY}`
+          }
+        })
+          .then(res => res.json())
+          .catch(err => {
+            console.log('ERROR:', err)
+            throw err
+          })
+      }
+    }
+  }
+}
+```
+
+---
+
+So lets create an Articles Bundle
+
+bundles/articles
+
+```js
+export default {
+  name: 'articles',
+
+  doFetchArticles: () => ({ dispatch, apiFetch }) => {
+    dispatch({ type: 'FETCH_ARTICLES_START' })
+    apiFetch('everything?q=tech').then(payload => {
+      dispatch({ type: 'FETCH_ARTICLES_SUCCESS', payload })
+    })
+  }
+}
+```
+
+> So we need to add a reducer to add the dat to state
+
+```js
+getReducer: () => {
+  const initialData = {
+    data: null,
+    loading: false
+  }
+
+  return (state = initialData, { type, payload }) => {
+    if (type === 'FETCH_ARTICLES_START') {
+      return merge(state, { loading: true })
+    }
+
+    if (type === 'FETCH_ARTICLES_SUCCESS') {
+      return merge(state, {
+        loading: false,
+        data: payload.articles
+      })
+    }
+    return state
+  }
+}
+```
+
+> Finally we want to create a couple of selectors to get the data out
+
+```js
+// selectors start at the beginning of state
+selectArticlesRaw: state => state.articles,
+selectArticles: state => state.articles.data
+```
+
+---
+
+Reactors
+
+```js
+reactShouldFetchArticles: createSelector('selectArticlesRaw', articleData => {
+  if (articleData.loading || articleData.data) {
+    return false
+  }
+  return { actionCreator: 'doFetchArticles' }
+})
+```
+
+---
+
+AsyncResourceBundle
+
+```js
+import { createAsyncResourceBundle } from 'redux-bundler'
+import { prop } from 'ramda'
+
+const articles = createAsyncResourceBundle({
+  name: 'articles2',
+  getPromise: ({ apiFetch }) =>
+    apiFetch('everything?q=tech').then(prop('articles'))
+})
+
+articles.reactShouldFetchArticles = createSelector(
+  'selectArticlesRaw',
+  articleData => {
+    if (articleData.loading || articleData.data) {
+      return false
+    }
+    return { actionCreator: 'doFetchArticles' }
+  }
+)
+
+export default articles
+```
+
+---
+
+TODO: Caching
+
+utils/cache.js
+
+```js
+import { getConfiguredCache } from 'money-clip'
+
+// This just creates a cache helper that is pre-configured
+// these options.
+// The version number should come from a config, this protects
+// from trying load cached data when the internal data structures
+// that your app expects have changed.
+//
+// Additionally, if you're caching user-specific data, you should build a
+// version string that includes some user identifier along with your actual
+// version number. This will ensure tha switching users won't result in
+// someone loading someone else's cached data.
+//
+// So, there are gotchas, but it sure is cool when you've got it all set up.
+export default getConfiguredCache({
+  maxAge: 1000 * 60 * 60,
+  version: 1
+})
+```
+
+> cache bundle example
+
+```js
+import { composeBundles, createCacheBundle } from 'redux-bundler'
+import routes from './routes'
+import baseData from './base-data'
+import people from './people'
+import extraArgs from './extra-args'
+import cache from '../utils/cache'
+
+export default composeBundles(
+  routes,
+  baseData,
+  people,
+  createCacheBundle(cache.set),
+  extraArgs
+)
+```
