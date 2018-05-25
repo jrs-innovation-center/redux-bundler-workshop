@@ -48,4 +48,4 @@ const Layout = ({ route, classes, doUpdateUrl }) => {
   )
 }
 
-export default withStyles(styles)(connect('selectRoute', Layout))
+export default withStyles(styles)(connect('selectRoute', 'doUpdateUrl', Layout))

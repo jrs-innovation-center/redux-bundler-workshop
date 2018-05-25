@@ -13,6 +13,14 @@ Redux Bundler gives you a pattern that is lightweight and has very few concepts 
 
 ---
 
+## Requirements
+
+* NodeJS
+* Create React App `npm i create-react-app -g`
+* NewsAPI Key - https://newsapi.org/
+
+---
+
 ## Demo
 
 In this demo, we will create a redux bundler app using the news api.
@@ -24,6 +32,7 @@ yarn add redux-bundler
 mkdir src/bundles
 mkdir src/components
 touch src/bundles/index.js
+echo "REACT_APP_NEWS_APIKEY=[yourkey]" > .env
 ```
 
 > Create a new bundles folder and index.js file
